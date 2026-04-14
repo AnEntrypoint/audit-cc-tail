@@ -6,12 +6,7 @@
     "audit-cc-tail": "src/index.ts"
   },
   "scripts": {
-    "start": "bun run src/index.ts",
-    "migrate": "bun run src/index.ts migrate",
-    "ingest": "bun run src/index.ts ingest",
-    "cluster": "bun run src/index.ts cluster",
-    "cluster:watch": "bun run src/index.ts cluster --watch",
-    "dashboard": "bun run src/index.ts dashboard"
+    "start": "bun run src/index.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.17.2",

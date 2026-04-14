@@ -1,27 +1,38 @@
+import { spawn } from "child_process";
 import { migrate } from "./db.ts";
 
 const [, , cmd, ...args] = process.argv;
+const self = new URL(import.meta.url).pathname;
 
 const usage = `
 audit-cc-tail — Claude behavioral variant fingerprinting
 
 Usage:
-  bun run src/index.ts <command> [options]
+  bun run src/index.ts [command]
 
 Commands:
-  migrate              Apply DB schema migrations
-  ingest               Backfill history + watch ~/.claude/projects for new responses
-  cluster              Run BGMM clustering once and print results
-  cluster --watch      Recalibrate every hour (keeps running)
-  dashboard            Live ANSI terminal dashboard (refreshes every 5s)
+  (none)               Migrate + start ingest, cluster:watch, and dashboard
+  migrate              Apply DB schema migrations only
+  ingest               Backfill + watch for new responses
+  cluster [--watch]    Run BGMM clustering once (or hourly with --watch)
+  dashboard            Live terminal dashboard
 
 Options:
   --help               Show this help
 `.trim();
 
-if (!cmd || cmd === "--help" || cmd === "-h") {
-  console.log(usage);
-  process.exit(0);
+function spawnWorker(workerCmd: string, workerArgs: string[] = []) {
+  const proc = spawn("bun", ["run", self, workerCmd, ...workerArgs], {
+    stdio: "inherit",
+    env: process.env,
+  });
+  proc.on("exit", (code) => {
+    if (code !== 0 && code !== null) {
+      console.error(`[${workerCmd}] exited with code ${code}, restarting in 3s…`);
+      setTimeout(() => spawnWorker(workerCmd, workerArgs), 3000);
+    }
+  });
+  return proc;
 }
 
 const dispatch: Record<string, () => Promise<void>> = {
@@ -41,11 +52,29 @@ const dispatch: Record<string, () => Promise<void>> = {
   },
 };
 
-const handler = dispatch[cmd];
-if (!handler) {
-  console.error(`Unknown command: ${cmd}\n`);
-  console.log(usage);
-  process.exit(1);
-}
+if (!cmd || cmd === "--help" || cmd === "-h") {
+  if (cmd === "--help" || cmd === "-h") { console.log(usage); process.exit(0); }
 
-await handler();
+  // Default: run everything
+  await migrate();
+  console.log("migrations applied — starting workers…");
+
+  const workers = [
+    spawnWorker("ingest"),
+    spawnWorker("cluster", ["--watch"]),
+    spawnWorker("dashboard"),
+  ];
+
+  process.on("SIGINT", () => {
+    workers.forEach((w) => w.kill());
+    process.exit(0);
+  });
+} else {
+  const handler = dispatch[cmd];
+  if (!handler) {
+    console.error(`Unknown command: ${cmd}\n`);
+    console.log(usage);
+    process.exit(1);
+  }
+  await handler();
+}
