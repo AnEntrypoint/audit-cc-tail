@@ -2,12 +2,16 @@
   "name": "audit-cc-tail",
   "version": "0.1.0",
   "type": "module",
+  "bin": {
+    "audit-cc-tail": "src/index.ts"
+  },
   "scripts": {
-    "migrate": "bun run src/migrate.ts",
-    "ingest": "bun run src/ingest.ts",
-    "cluster": "bun run src/cluster.ts",
-    "cluster:watch": "bun run src/cluster.ts --watch",
-    "dashboard": "bun run src/dashboard.ts"
+    "start": "bun run src/index.ts",
+    "migrate": "bun run src/index.ts migrate",
+    "ingest": "bun run src/index.ts ingest",
+    "cluster": "bun run src/index.ts cluster",
+    "cluster:watch": "bun run src/index.ts cluster --watch",
+    "dashboard": "bun run src/index.ts dashboard"
   },
   "dependencies": {
     "@libsql/client": "^0.17.2",
