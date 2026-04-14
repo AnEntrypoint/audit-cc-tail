@@ -21,9 +21,11 @@ Options:
   --help               Show this help
 `.trim();
 
+const SILENT_WORKERS = new Set(["ingest", "cluster"]);
+
 function spawnWorker(workerCmd: string, workerArgs: string[] = []) {
   const proc = spawn("bun", ["run", self, workerCmd, ...workerArgs], {
-    stdio: "inherit",
+    stdio: SILENT_WORKERS.has(workerCmd) ? ["ignore", "ignore", "ignore"] : "inherit",
     env: process.env,
   });
   proc.on("exit", (code) => {
