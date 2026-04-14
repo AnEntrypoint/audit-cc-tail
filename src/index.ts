@@ -55,7 +55,6 @@ const dispatch: Record<string, () => Promise<void>> = {
 if (!cmd || cmd === "--help" || cmd === "-h") {
   if (cmd === "--help" || cmd === "-h") { console.log(usage); process.exit(0); }
 
-  // Default: run everything
   await migrate();
   console.log("migrations applied — starting workers…");
 
