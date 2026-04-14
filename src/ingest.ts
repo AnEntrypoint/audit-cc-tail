@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { getDb, migrate } from "./db.ts";
-import { extractVec, familyOf } from "./features.ts";
+import { extractVec, extractToolVec, classifyResponseType, familyOf } from "./features.ts";
 
 const PROJECTS_DIR = path.join(os.homedir(), ".claude", "projects");
 const DEBOUNCE_MS = 50;
@@ -15,8 +15,6 @@ await migrate();
 const seen = new Set<string>();
 const tails = new Map<string, { fd: number | null; offset: number; partial: string }>();
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
-
-// Pending inserts buffer — flushed periodically and at EOF
 const pendingInserts: { sql: string; args: unknown[] }[] = [];
 
 async function flushInserts() {
@@ -30,10 +28,7 @@ async function flushInserts() {
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 function scheduleFlush() {
   if (flushTimer) return;
-  flushTimer = setTimeout(async () => {
-    flushTimer = null;
-    await flushInserts();
-  }, 100);
+  flushTimer = setTimeout(async () => { flushTimer = null; await flushInserts(); }, 100);
 }
 
 async function loadSeen() {
@@ -41,6 +36,8 @@ async function loadSeen() {
   for (const row of rows.rows) seen.add(row.id as string);
   console.log(`loaded ${seen.size} existing responses`);
 }
+
+type ContentBlock = { type: string; text?: string; name?: string; input?: unknown };
 
 function processEntry(e: Record<string, unknown>) {
   if (e.type !== "assistant") return;
@@ -50,11 +47,9 @@ function processEntry(e: Record<string, unknown>) {
   if (seen.has(msgId)) return;
   const family = familyOf(msg.model as string);
   if (!family) return;
-  const content = (msg.content as unknown[]) ?? [];
-  const textBlocks = content.filter(
-    (b): b is { type: "text"; text: string } =>
-      typeof b === "object" && b !== null && (b as { type: string }).type === "text"
-  );
+
+  const content = ((msg.content as ContentBlock[]) ?? []);
+  const textBlocks = content.filter((b): b is ContentBlock & { text: string } => b.type === "text");
   const text = textBlocks.map((b) => b.text).join(" ");
   const usage = msg.usage as Record<string, number>;
   const outTok = usage.output_tokens ?? 0;
@@ -64,24 +59,32 @@ function processEntry(e: Record<string, unknown>) {
   const stopReason = (msg.stop_reason as string | null) ?? null;
   const ts = typeof e.timestamp === "string" ? new Date(e.timestamp).getTime() : Date.now();
   const sessionId = (e.sessionId as string) ?? "";
+  const responseType = classifyResponseType(content);
   const vec = extractVec(text, outTok, inTok, cacheRead, cacheCreate, stopReason);
+  const toolVec = extractToolVec(content);
 
   seen.add(msgId);
-  process.stdout.write(`+${family}(${msg.model}) `);
+  process.stdout.write(`+${family}(${responseType[0]}) `);
 
   pendingInserts.push(
     {
       sql: `INSERT OR IGNORE INTO responses
         (id, ts, session_id, family, model_str, output_tokens, input_tokens,
-         cache_read_tokens, cache_create_tokens, stop_reason, text_len)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-      args: [msgId, ts, sessionId, family, msg.model as string, outTok, inTok, cacheRead, cacheCreate, stopReason, text.length],
+         cache_read_tokens, cache_create_tokens, stop_reason, text_len, response_type)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+      args: [msgId, ts, sessionId, family, msg.model as string, outTok, inTok, cacheRead, cacheCreate, stopReason, text.length, responseType],
     },
     {
       sql: `INSERT OR IGNORE INTO features (response_id, family, vec) VALUES (?,?,?)`,
       args: [msgId, family, JSON.stringify(vec)],
     }
   );
+  if (toolVec) {
+    pendingInserts.push({
+      sql: `INSERT OR IGNORE INTO tool_features (response_id, family, vec) VALUES (?,?,?)`,
+      args: [msgId, family, JSON.stringify(toolVec)],
+    });
+  }
   scheduleFlush();
 }
 
@@ -114,11 +117,7 @@ function readFileSync(fp: string) {
 function debounce(fp: string) {
   const t = timers.get(fp);
   if (t) clearTimeout(t);
-  timers.set(fp, setTimeout(async () => {
-    timers.delete(fp);
-    readFileSync(fp);
-    await flushInserts();
-  }, DEBOUNCE_MS));
+  timers.set(fp, setTimeout(async () => { timers.delete(fp); readFileSync(fp); await flushInserts(); }, DEBOUNCE_MS));
 }
 
 function collectFiles(dir: string, depth = 0): string[] {
@@ -137,16 +136,8 @@ function collectFiles(dir: string, depth = 0): string[] {
 async function scanParallel(dir: string) {
   const files = collectFiles(dir);
   console.log(`scanning ${files.length} jsonl files with concurrency ${READ_CONCURRENCY}…`);
-
   for (let i = 0; i < files.length; i += READ_CONCURRENCY) {
-    const chunk = files.slice(i, i + READ_CONCURRENCY);
-    await Promise.all(chunk.map((fp) => {
-      return new Promise<void>((resolve) => {
-        readFileSync(fp);
-        resolve();
-      });
-    }));
-    // Flush accumulated inserts every chunk to avoid unbounded memory
+    await Promise.all(files.slice(i, i + READ_CONCURRENCY).map((fp) => new Promise<void>((resolve) => { readFileSync(fp); resolve(); })));
     await flushInserts();
   }
   await flushInserts();
@@ -160,12 +151,6 @@ const watcher = fs.watch(PROJECTS_DIR, { recursive: true }, (_, f) => {
   if (f && f.endsWith(".jsonl")) debounce(path.join(PROJECTS_DIR, f));
 });
 watcher.on("error", (e) => { throw e; });
-
 console.log("ingestor running — watching", PROJECTS_DIR);
 
-process.on("SIGINT", async () => {
-  watcher.close();
-  await flushInserts();
-  process.stdout.write("\n");
-  process.exit(0);
-});
+process.on("SIGINT", async () => { watcher.close(); await flushInserts(); process.stdout.write("\n"); process.exit(0); });

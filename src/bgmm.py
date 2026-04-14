@@ -7,10 +7,11 @@ with open(sys.argv[1]) as f:
 
 family = data["family"]
 vectors = data["vectors"]
+mode = data.get("mode", "text")
 n = len(vectors)
 
 if n < 6:
-    print(json.dumps({"k": 1, "weights": [1.0], "labels": [0] * n, "pk": {"1": 1.0}, "means": [[0.0]]}))
+    print(json.dumps({"k": 1, "weights": [1.0], "labels": [0] * n, "pk": {"1": 1.0}, "means": [[0.0]], "mode": mode}))
     sys.exit(0)
 
 X = np.array(vectors, dtype=float)
@@ -50,7 +51,6 @@ def n_params_diag(active_k):
 def bic(model, active_k):
     return -2 * n * model.lower_bound_ + n_params_diag(active_k) * np.log(n)
 
-# Fit all combinations; track per-seed best-k votes
 all_runs = []
 best_by_k = {}
 
@@ -67,10 +67,9 @@ for k in range(2, max_k + 1):
             continue
 
 if not all_runs:
-    print(json.dumps({"k": 1, "weights": [1.0], "labels": [0] * n, "pk": {"1": 1.0}, "means": [[0.0]]}))
+    print(json.dumps({"k": 1, "weights": [1.0], "labels": [0] * n, "pk": {"1": 1.0}, "means": [[0.0]], "mode": mode}))
     sys.exit(0)
 
-# Per-seed: each seed votes for the best active_k it found across all k values
 seed_votes = {}
 for seed in range(N_SEEDS):
     seed_runs = [r for r in all_runs if r["seed"] == seed]
@@ -83,7 +82,6 @@ for seed in range(N_SEEDS):
 total_votes = sum(seed_votes.values())
 pk = {k: round(v / total_votes, 4) for k, v in sorted(seed_votes.items()) if v / total_votes >= 0.01}
 
-# Pick model: best BIC overall
 best_run = min(all_runs, key=lambda r: r["bic"])
 best_active_k = best_run["active_k"]
 bgmm = best_run["model"]
@@ -113,4 +111,5 @@ print(json.dumps({
     "labels": remapped,
     "pk": {str(k): v for k, v in pk.items()},
     "means": means,
+    "mode": mode,
 }))
