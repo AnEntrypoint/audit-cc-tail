@@ -1,0 +1,16 @@
+{
+  "name": "audit-cc-tail",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "migrate": "bun run src/migrate.ts",
+    "ingest": "bun run src/ingest.ts",
+    "cluster": "bun run src/cluster.ts",
+    "cluster:watch": "bun run src/cluster.ts --watch",
+    "dashboard": "bun run src/dashboard.ts"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.2",
+    "@lanmower/cc-tail": "^1.0.2"
+  }
+}
