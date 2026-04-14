@@ -2,7 +2,7 @@ import { spawn } from "child_process";
 import { migrate } from "./db.ts";
 
 const [, , cmd, ...args] = process.argv;
-const self = new URL(import.meta.url).pathname;
+const self = import.meta.dir + "/index.ts";
 
 const usage = `
 audit-cc-tail — Claude behavioral variant fingerprinting
