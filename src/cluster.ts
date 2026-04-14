@@ -15,11 +15,14 @@ await migrate();
 
 async function runBgmm(family: string): Promise<void> {
   const rows = await db.execute(
-    "SELECT response_id, vec FROM features WHERE family = ?",
+    `SELECT f.response_id, f.vec
+     FROM features f
+     JOIN responses r ON r.id = f.response_id
+     WHERE f.family = ? AND r.output_tokens > 10 AND r.text_len > 30`,
     [family]
   );
   if (rows.rows.length < MIN_SAMPLES) {
-    console.log(`${family}: ${rows.rows.length} samples — skipping (need ${MIN_SAMPLES})`);
+    console.log(`${family}: ${rows.rows.length} usable samples — skipping (need ${MIN_SAMPLES})`);
     return;
   }
   const ids = rows.rows.map((r) => r.response_id as string);
@@ -55,7 +58,51 @@ async function runBgmm(family: string): Promise<void> {
   console.log(`${family}: K=${result.k} samples=${rows.rows.length} ${pkStr}`);
 }
 
+async function recomputeFeatures(): Promise<void> {
+  const sample = await db.execute("SELECT vec FROM features LIMIT 1");
+  if (!sample.rows.length) return;
+  const sampleVec = JSON.parse(sample.rows[0].vec as string) as number[];
+  if (sampleVec.length === 8) return;
+
+  const rows = await db.execute(
+    `SELECT f.response_id, f.family, f.vec, r.stop_reason
+     FROM features f
+     JOIN responses r ON r.id = f.response_id`,
+  );
+  if (!rows.rows.length) return;
+
+  console.log(`migrating ${rows.rows.length} feature vectors to new schema…`);
+  const STOP_CODES: Record<string, number> = { end_turn: 0, tool_use: 1, max_tokens: 2, stop_sequence: 3 };
+  const batches: { sql: string; args: unknown[] }[] = [];
+
+  for (const row of rows.rows) {
+    const old = JSON.parse(row.vec as string) as number[];
+    if (old.length !== 10) continue;
+    const [outTok, , , chars, avgWordLen, punctD, markD, uniqueW, sentVar] = old;
+    const stopCode = STOP_CODES[(row.stop_reason as string) ?? ""] ?? -1;
+    const newVec = [
+      Math.log1p(outTok),
+      Math.log1p(chars),
+      avgWordLen,
+      punctD,
+      markD,
+      uniqueW,
+      Math.log1p(sentVar),
+      stopCode,
+    ];
+    batches.push({
+      sql: `UPDATE features SET vec = ? WHERE response_id = ?`,
+      args: [JSON.stringify(newVec), row.response_id as string],
+    });
+  }
+  for (let i = 0; i < batches.length; i += 200) {
+    await db.batch(batches.slice(i, i + 200));
+  }
+  console.log(`features migrated`);
+}
+
 async function runAll() {
+  await recomputeFeatures();
   for (const family of FAMILIES) {
     try { await runBgmm(family); } catch (e) { console.error(`${family} error:`, (e as Error).message); }
   }

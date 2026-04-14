@@ -8,9 +8,9 @@ const STOP_CODES: Record<string, number> = {
 export function extractVec(
   text: string,
   outputTokens: number,
-  inputTokens: number,
-  cacheReadTokens: number,
-  cacheCreateTokens: number,
+  _inputTokens: number,
+  _cacheReadTokens: number,
+  _cacheCreateTokens: number,
   stopReason: string | null
 ): number[] {
   const words = text.split(/\s+/).filter(Boolean);
@@ -29,20 +29,16 @@ export function extractVec(
   const sentLenVar =
     sentLens.reduce((s, v) => s + (v - meanSentLen) ** 2, 0) /
     Math.max(sentLens.length, 1);
-  const totalIn = inputTokens + cacheReadTokens + cacheCreateTokens;
-  const cacheRatio = totalIn > 0 ? cacheReadTokens / totalIn : 0;
-  const stopCode = STOP_CODES[stopReason ?? ""] ?? 4;
+  const stopCode = STOP_CODES[stopReason ?? ""] ?? -1;
 
   return [
-    outputTokens,
-    inputTokens,
-    cacheRatio,
-    chars,
+    Math.log1p(outputTokens),
+    Math.log1p(chars),
     avgWordLen,
     chars > 0 ? punctCount / chars : 0,
     chars > 0 ? markdownCount / chars : 0,
     uniqueWords.size / Math.max(words.length, 1),
-    sentLenVar,
+    Math.log1p(sentLenVar),
     stopCode,
   ];
 }
