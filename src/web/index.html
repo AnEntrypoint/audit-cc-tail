@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>audit-cc-tail dashboard</title>
+<link rel="stylesheet" href="https://unpkg.com/anentrypoint-design@0.0.25/dist/247420.css">
+<script type="importmap">
+{ "imports": { "anentrypoint-design": "https://unpkg.com/anentrypoint-design@0.0.25/dist/247420.js" } }
+</script>
+<style>
+body { margin: 0; font-family: ui-sans-serif, system-ui, sans-serif; background: #0a0a0a; color: #ddd; }
+.shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+.sidebar { background: #111; border-right: 1px solid #222; padding: 1rem 0; display: flex; flex-direction: column; }
+.sidebar h1 { font-family: ui-monospace, monospace; color: #FFD700; margin: 0 1rem 0.75rem 1rem; font-size: 1.05rem; letter-spacing: 0.18em; }
+.nav-link { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 1rem; color: #bbb; text-decoration: none; cursor: pointer; border-left: 3px solid transparent; }
+.nav-link:hover { background: #1a1a1a; color: #fff; }
+.nav-link.active { background: #1a1a1a; color: #FFD700; border-left-color: #FFD700; }
+.nav-icon { width: 1.1rem; text-align: center; opacity: 0.85; font-family: ui-monospace, monospace; }
+.sidebar-footer { margin-top: auto; padding: 0.75rem 1rem; border-top: 1px solid #222; color: #666; font-family: ui-monospace, monospace; font-size: 0.7rem; }
+.main-col { display: flex; flex-direction: column; min-height: 100vh; }
+.main { padding: 1.25rem 1.5rem; overflow: auto; flex: 1; }
+.topbar { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 0.75rem; border-bottom: 1px solid #2a2a2a; margin-bottom: 1rem; }
+.topbar h2 { margin: 0; font-size: 1.4rem; }
+.topbar .crumb { color: #888; font-size: 0.85rem; font-family: ui-monospace, monospace; }
+.panels { display: flex; flex-direction: column; gap: 1rem; }
+.panel { background: #161616; border-left: 2px solid #FFD700; padding: 0.75rem 1rem; }
+.panel h3 { margin: 0 0 0.5rem 0; font-size: 1rem; color: #FFD700; font-family: ui-monospace, monospace; letter-spacing: 0.05em; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 0.35rem 0.6rem; border-bottom: 1px solid #222; }
+th { color: #FFD700; font-family: ui-monospace, monospace; font-weight: normal; }
+.kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.6rem; }
+.kpi-card { background: #161616; border-left: 2px solid #FFD700; padding: 0.6rem 0.8rem; }
+.kpi-card .num { font-size: 1.5rem; font-family: ui-monospace, monospace; color: #FFD700; }
+.kpi-card .lbl { font-size: 0.72rem; color: #999; text-transform: uppercase; letter-spacing: 0.1em; }
+.statusbar { background: #0d0d0d; color: #888; padding: 0.4rem 1rem; font-family: ui-monospace, monospace; font-size: 0.75rem; display: flex; justify-content: space-between; border-top: 1px solid #222; }
+.empty { color: #666; font-style: italic; }
+.err { color: #f66; }
+.bar-row { display: flex; align-items: center; gap: 0.6rem; font-family: ui-monospace, monospace; font-size: 0.82rem; }
+.bar-row .lbl { width: 110px; color: #aaa; }
+.bar-row .bar-bg { flex: 1; background: #0d0d0d; height: 14px; position: relative; border: 1px solid #222; }
+.bar-row .bar-fill { background: #FFD700; height: 100%; }
+.bar-row .val { width: 90px; text-align: right; color: #ddd; }
+.spark { display: block; }
+.tag { display: inline-block; padding: 0.1rem 0.5rem; background: #222; color: #ddd; font-family: ui-monospace, monospace; font-size: 0.72rem; margin-right: 0.3rem; border-radius: 2px; }
+.tag.active { background: #1a3d1a; color: #6f6; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

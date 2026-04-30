@@ -15,7 +15,7 @@ Commands:
   migrate              Apply DB schema migrations only
   ingest               Backfill + watch for new responses
   cluster [--watch]    Run BGMM clustering once (or hourly with --watch)
-  dashboard            Live terminal dashboard
+  dashboard            Web dashboard (http://127.0.0.1:7842)
 
 Options:
   --help               Show this help
@@ -50,7 +50,8 @@ const dispatch: Record<string, () => Promise<void>> = {
     await import("./cluster.ts");
   },
   dashboard: async () => {
-    await import("./dashboard.ts");
+    await import("./web/server.ts");
+    await new Promise(() => {});
   },
 };
 
