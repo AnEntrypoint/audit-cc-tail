@@ -21,3 +21,4 @@ node_modules/
 audit.db
 audit.db-*
 .codeinsight
+config.bat

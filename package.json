@@ -9,7 +9,9 @@
     "start": "bun run src/index.ts"
   },
   "dependencies": {
+    "@lanmower/cc-tail": "^1.0.2",
     "@libsql/client": "^0.17.2",
-    "@lanmower/cc-tail": "^1.0.2"
+    "dotenv": "^8.2.0",
+    "node-fetch": "^3.3.2"
   }
 }
